@@ -1,1 +1,2 @@
-# EODP_code
+# eodp
+EODP main repository
