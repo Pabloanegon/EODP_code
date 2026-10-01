@@ -126,7 +126,6 @@ class mtf:
                 - fr_clip * np.sqrt(1.0 - fr_clip ** 2)
         )
 
-        # Por encima de la frecuencia de corte, MTF = 0
         Hdiff = np.where(fr2D <= 1.0, Hdiff, 0.0)
 
         return Hdiff
@@ -144,11 +143,8 @@ class mtf:
         #TODO
         fr2D = np.asarray(fr2D, dtype=float)
 
-        # x = pi * defocus * xi_r * (1 - xi_r)
         x = np.pi * defocus * fr2D * (1.0 - fr2D)
 
-        # MTF = 2 * J1(x) / x
-        # For x = 0, the limit is 1
         Hdefoc = np.ones_like(x)
 
         mask = np.abs(x) > 1e-12
@@ -171,7 +167,6 @@ class mtf:
 
         fr2D = np.asarray(fr2D, dtype=float)
 
-        # Relative frequency limited to the optical passband
         fr = np.clip(fr2D, 0.0, 1.0)
 
         aberration = (
@@ -183,7 +178,6 @@ class mtf:
             -fr * (1.0 - fr) * aberration
         )
 
-        # No optical response beyond cut-off frequency
         Hwfe = np.where(fr2D <= 1.0, Hwfe, 0.0)
 
         return Hwfe
@@ -247,15 +241,11 @@ class mtf:
         """
         #TODO
 
-        # Carpeta output_test
         os.makedirs(self.outdir, exist_ok=True)
 
         centerAlt = nlines // 2
         centerAct = ncolumns // 2
 
-        # ==========================================================
-        # ACT
-        # ==========================================================
         plt.figure(figsize=(12, 6))
 
         x = fnAct[centerAct:]
@@ -299,9 +289,6 @@ class mtf:
 
         plt.close()
 
-        # ==========================================================
-        # ALT
-        # ==========================================================
         plt.figure(figsize=(12, 6))
 
         x = fnAlt[centerAlt:]
@@ -345,9 +332,6 @@ class mtf:
 
         plt.close()
 
-        # ==========================================================
-        # SYSTEM MTF 2D
-        # ==========================================================
         plt.figure(figsize=(10, 6))
 
         im = plt.imshow(

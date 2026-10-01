@@ -110,10 +110,8 @@ class opticalPhase(initIsm):
 
         GE = GE * fftshift(Hsys)
 
-        # Transform back to spatial domain
         toa_ft = ifft2(GE)
 
-        # Imaginary part should be negligible
         toa_ft = np.real(toa_ft)
 
         return toa_ft
@@ -130,10 +128,8 @@ class opticalPhase(initIsm):
 
         toa = np.zeros((sgm_toa.shape[0],sgm_toa.shape[1]))
 
-        # Normalize ISRF
         isrf = isrf / np.sum(isrf)
 
-        # CONVERT ISFR WAVELENGTH TO NANOMETERS x1000
         wv_isrf = wv_isrf * 1000
 
         # cs = interp1d(wv_isrf, isrf, fill_value=(0, 0), bounds_error=False)
