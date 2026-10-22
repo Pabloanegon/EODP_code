@@ -6,7 +6,7 @@ from l1c.src.l1c import l1c
 # Directory - this is the common directory for the execution of the E2E, all modules
 auxdir = r'C:\\Users\\Usuario\\Downloads\\SHARED-20260910T162811Z-1-001\\SHARED\\EODP_code\\auxiliary'
 # GM dir + L1B dir
-indir = r'C:\Users\Usuario\Downloads\SHARED-20260910T162811Z-1-001\SHARED\EODP-TS-E2E\gm_out,C:\Users\Usuario\Downloads\SHARED-20260910T162811Z-1-001\SHARED\EODP_TER_2021\EODP-TS-L1B\output_no_equalization'
+indir = r'C:\Users\Usuario\Downloads\SHARED-20260910T162811Z-1-001\SHARED\EODP-TS-E2E\gm_out,C:\Users\Usuario\Downloads\SHARED-20260910T162811Z-1-001\SHARED\EODP_TER_2021\EODP-TS-L1B\output_test_1'
 outdir = r'C:\\Users\\Usuario\\Downloads\\SHARED-20260910T162811Z-1-001\\SHARED\\EODP_TER_2021\\EODP-TS-L1C\\output_test_1'
 
 # Initialise the ISM
