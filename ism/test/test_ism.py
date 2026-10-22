@@ -25,95 +25,89 @@ def read_toa(path):
         return np.asarray(dataset.variables["toa"][:])
 
 
+
 def cross_validation():
 
+    bands = CONFIG.bands  # VNIR-0, VNIR-1, VNIR-2, VNIR-3
+
     reference_files = {
-        file.name: file
-        for file in REFERENCE_DIR.glob("*.nc")
+        f.name: f for f in REFERENCE_DIR.glob("*.nc")
     }
-
     test_files = {
-        file.name: file
-        for file in TEST_DIR.glob("*.nc")
+        f.name: f for f in TEST_DIR.glob("*.nc")
     }
 
-    missing_test = reference_files.keys() - test_files.keys()
-    missing_reference = test_files.keys() - reference_files.keys()
-
-    if missing_test:
-        print()
-        print("Files present in professor output but missing in output_test:")
-        for filename in sorted(missing_test):
-            print("   ", filename)
-
-    if missing_reference:
-        print()
-        print("Files present in output_test but missing in professor output:")
-        for filename in sorted(missing_reference):
-            print("   ", filename)
-
-    common_files = reference_files.keys() & test_files.keys()
-
-    if not common_files:
-        print("No common NetCDF files found.")
-        return False
-
-    print()
-    print("ISM CROSS-VALIDATION")
-    print()
+    print("\nISM CROSS-VALIDATION (VNIR-0 to VNIR-3)\n")
 
     all_identical = True
 
-    for filename in sorted(common_files):
+    for band in bands:
+        filenames = sorted(
+            filename
+            for filename in reference_files.keys() | test_files.keys()
+            if filename.endswith(f"{band}.nc")
+        )
 
-        reference = read_toa(reference_files[filename])
-        test = read_toa(test_files[filename])
+        print(f" {band} ")
 
-        if reference.shape != test.shape:
-            print(
-                f"{filename:<35} "
-                f"DIFFERENT SHAPE "
-                f"{reference.shape} != {test.shape}"
-            )
+        if not filenames:
+            print(f"Missing files for {band} in both folders")
             all_identical = False
             continue
 
-        difference = (
-            test.astype(np.float64)
-            - reference.astype(np.float64)
-        )
+        band_identical = True
 
-        abs_difference = np.abs(difference)
+        for filename in filenames:
+            if filename not in reference_files or filename not in test_files:
+                missing_in = (
+                    "output"
+                    if filename not in reference_files
+                    else "output_test"
+                )
+                print(f"{filename}: MISSING in {missing_in}")
+                band_identical = False
+                continue
 
-        mae = np.mean(abs_difference)
-        max_error = np.max(abs_difference)
+            reference = read_toa(reference_files[filename])
+            test = read_toa(test_files[filename])
 
-        identical = np.array_equal(reference, test)
+            if reference.shape != test.shape:
+                print(
+                    f"{filename}: DIFFERENT SHAPE "
+                    f"{reference.shape} != {test.shape}"
+                )
+                band_identical = False
+                continue
 
-        print(
-            f"{filename:<35} "
-            f"identical={str(identical):<5}  "
-            f"MAE={mae:.3e}  "
-            f"max error={max_error:.3e}"
-        )
+            difference = np.abs(
+                test.astype(np.float64)
+                - reference.astype(np.float64)
+            )
 
-        if not identical:
-            all_identical = False
+            mae = np.mean(difference)
+            max_error = np.max(difference)
+            identical = np.array_equal(reference, test)
 
-    print()
+            print(
+                f"{filename:<35} "
+                f"identical={str(identical):<5}  "
+                f"MAE={mae:.3e}  "
+                f"max error={max_error:.3e}"
+            )
 
-    if all_identical:
-        print(
-            "RESULT: PASS - All comparable ISM outputs are identical."
-        )
-    else:
-        print(
-            "RESULT: FAIL - Differences were found in comparable outputs."
-        )
+            if not identical:
+                band_identical = False
 
-    print()
+        print(f"{band}: {'PASS' if band_identical else 'FAIL'}\n")
+        all_identical &= band_identical
+
+    print(
+        f"RESULT: {'PASS' if all_identical else 'FAIL'} "
+        "- ISM VNIR cross-validation\n"
+    )
 
     return all_identical
+
 
 
 if __name__ == "__main__":

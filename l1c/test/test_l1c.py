@@ -14,12 +14,13 @@ ROOT = Path(
 
 INPUT_DIR = ROOT / "input"
 GM_DIR = INPUT_DIR / "gm_alt100_act_150"
+REFERENCE_DIR = ROOT / "output"
 L1C_DIR = ROOT / "output_test"
 
 PLOT_DIR = ROOT / "cross_validation_plots"
 
 CONFIG = globalConfig()
-BAND = "VNIR-0"
+BANDS = CONFIG.bands
 
 
 def haversine(lat1, lon1, lat2, lon2):
@@ -41,23 +42,23 @@ def haversine(lat1, lon1, lat2, lon2):
     return 2 * R * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 
 
-def read_grids():
-    # L1B
+
+def read_grids(band):
     lat_l1b, lon_l1b = readGeodetic(
         str(GM_DIR), CONFIG.gm_geoloc
     )
 
-    # L1C
     toa_l1c, lat_l1c, lon_l1c = readL1c(
         str(L1C_DIR),
-        f"{CONFIG.l1c_toa}{BAND}.nc"
+        f"{CONFIG.l1c_toa}{band}.nc"
     )
 
     return lat_l1b, lon_l1b, lat_l1c, lon_l1c
 
+
 # 1. PLOT L1B GRID VS L1C GRID
 
-def plot_l1b_vs_l1c(lat_l1b, lon_l1b, lat_l1c, lon_l1c):
+def plot_l1b_vs_l1c(lat_l1b, lon_l1b, lat_l1c, lon_l1c, band):
     plt.figure(figsize=(11, 7))
 
     # L1B
@@ -80,7 +81,7 @@ def plot_l1b_vs_l1c(lat_l1b, lon_l1b, lat_l1c, lon_l1c):
         alpha=0.7
     )
 
-    plt.title("Projection on ground")
+    plt.title(f"Projection on ground - {band}")
     plt.xlabel("Longitude [deg]")
     plt.ylabel("Latitude [deg]")
 
@@ -88,7 +89,7 @@ def plot_l1b_vs_l1c(lat_l1b, lon_l1b, lat_l1c, lon_l1c):
     plt.legend()
     plt.tight_layout()
 
-    output_file = PLOT_DIR / "l1b_vs_l1c_grid.png"
+    output_file = PLOT_DIR / f"l1b_vs_l1c_grid_{band}.png"
 
     plt.savefig(output_file, dpi=150)
     plt.show()
@@ -134,7 +135,7 @@ def spatial_sampling_distance(lat_l1b, lon_l1b):
     x_alt = np.arange(len(ssd_alt))
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-    fig.suptitle(f"Spatial Sampling Distance - {BAND}")
+    fig.suptitle("Spatial Sampling Distance - L1B geolocation")
 
     axes[0].plot(x_act, ssd_act, color="indianred", linewidth=2)
     axes[0].set_title(f"L1B - Control row {control_row}")
@@ -181,20 +182,110 @@ def spatial_sampling_distance(lat_l1b, lon_l1b):
     print(f"L1B control row {control_row} mean SSD: {np.mean(ssd_act):.2f} m")
     print(f"L1B control column {control_col} mean SSD: {np.mean(ssd_alt):.2f} m")
 
+def cross_validation():
+
+        print("\nL1C CROSS-VALIDATION (VNIR-0 to VNIR-3)\n")
+
+        all_identical = True
+
+        for band in BANDS:
+            filename = f"{CONFIG.l1c_toa}{band}.nc"
+
+            professor_file = REFERENCE_DIR / filename
+            our_file = L1C_DIR / filename
+
+            print(f" {band} ")
+
+            if not professor_file.is_file() or not our_file.is_file():
+                missing = [
+                    str(p)
+                    for p in (professor_file, our_file)
+                    if not p.is_file()
+                ]
+                print("MISSING:", ", ".join(missing))
+                all_identical = False
+                continue
+
+            professor_toa, professor_lat, professor_lon = readL1c(
+                str(REFERENCE_DIR), filename
+            )
+
+            our_toa, our_lat, our_lon = readL1c(
+                str(L1C_DIR), filename
+            )
+
+            band_identical = True
+
+            for field, reference, test in (
+                    ("toa", professor_toa, our_toa),
+                    ("lat", professor_lat, our_lat),
+                    ("lon", professor_lon, our_lon),
+            ):
+                if reference.shape != test.shape:
+                    print(
+                        f"{field}: DIFFERENT SHAPE "
+                        f"{reference.shape} != {test.shape}"
+                    )
+                    band_identical = False
+                    continue
+
+                difference = np.abs(
+                    test.astype(np.float64)
+                    - reference.astype(np.float64)
+                )
+
+                identical = np.array_equal(reference, test)
+
+                print(
+                    f"{field:<5} "
+                    f"identical={str(identical):<5}  "
+                    f"MAE={np.mean(difference):.3e}  "
+                    f"max error={np.max(difference):.3e}"
+                )
+
+                if not identical:
+                    band_identical = False
+
+            print(f"{band}: {'PASS' if band_identical else 'FAIL'}\n")
+            all_identical &= band_identical
+
+        print(
+            f"RESULT: {'PASS' if all_identical else 'FAIL'} "
+            "- L1C VNIR cross-validation\n"
+        )
+
+        return all_identical
+
+
 
 if __name__ == "__main__":
     PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
-    lat_l1b, lon_l1b, lat_l1c, lon_l1c = read_grids()
+    passed = cross_validation()
 
-    plot_l1b_vs_l1c(
-        lat_l1b,
-        lon_l1b,
-        lat_l1c,
-        lon_l1c
-    )
+    for band in BANDS:
+        filename = L1C_DIR / f"{CONFIG.l1c_toa}{band}.nc"
 
-    spatial_sampling_distance(
-        lat_l1b,
-        lon_l1b
-    )
+        if not filename.is_file():
+            print(f"Skipping grid plot for {band}: {filename} not found")
+            continue
+
+        lat_l1b, lon_l1b, lat_l1c, lon_l1c = read_grids(band)
+
+        plot_l1b_vs_l1c(
+            lat_l1b,
+            lon_l1b,
+            lat_l1c,
+            lon_l1c,
+            band
+        )
+    if any(
+        (L1C_DIR / f"{CONFIG.l1c_toa}{band}.nc").is_file()
+        for band in BANDS
+    ):
+        spatial_sampling_distance(lat_l1b, lon_l1b)
+
+    if not passed:
+        raise AssertionError(
+            "L1C cross-validation failed: output and output_test differ."
+        )
